@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lifetime Countdown</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #000000;
+        color: #000000;
+        font-family: monospace;
+      }
+      .container {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .countdown {
+        color: #ffffff;
+        font-size: clamp(32px, 10vw, 120px);
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      .countdown-unit {
+        color: #ffffff;
+        font-size: clamp(16px, 5vw, 60px);
+      }
+      .countdown-unit-select {
+        color: #ffffff;
+        font-size: clamp(16px, 5vw, 60px);
+        background-color: #000000;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div>
+        <div id="countdown" class="countdown">Loading…</div>
+
+        <div class="countdown-unit">
+          <select
+            id="unit"
+            class="countdown-unit-select"
+            aria-label="Countdown unit"
+          >
+            <option value="years">years</option>
+            <option value="months">months</option>
+            <option value="days">days</option>
+            <option value="hours">hours</option>
+            <option value="seconds">seconds</option>
+            <option value="milliseconds" selected>milliseconds</option>
+          </select>
+          <span>remaining</span>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { config } from "./config.js";
+
+      function computeTargetDate(birthdate, lifeExpectancyYears) {
+        const target = new Date(birthdate.getTime());
+        target.setFullYear(target.getFullYear() + lifeExpectancyYears);
+        return target;
+      }
+
+      function formatTime(ms, unit) {
+        if (ms <= 0) return { text: "0", done: true };
+        const msPer = {
+          years: 365.2425 * 24 * 60 * 60 * 1000,
+          months: 30.4375 * 24 * 60 * 60 * 1000,
+          days: 24 * 60 * 60 * 1000,
+          hours: 60 * 60 * 1000,
+          seconds: 1000,
+          milliseconds: 1,
+        };
+        const divisor = msPer[unit] ?? 1000;
+        const value =
+          unit === "milliseconds" ? Math.floor(ms) : Math.floor(ms / divisor);
+        return { text: value.toLocaleString(), done: false };
+      }
+
+      const countdownEl = document.getElementById("countdown");
+      const unitSelect = document.getElementById("unit");
+
+      const targetDate = computeTargetDate(
+        config.birthdate,
+        config.lifeExpectancy
+      );
+
+      function getSelectedUnit() {
+        return unitSelect.value;
+      }
+
+      let timer = null;
+      let rafId = null;
+
+      function stopTicker() {
+        if (timer !== null) {
+          clearInterval(timer);
+          timer = null;
+        }
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+
+      function tickOnce() {
+        const now = new Date();
+        const remaining = targetDate.getTime() - now.getTime();
+        const { text, done } = formatTime(remaining, getSelectedUnit());
+        countdownEl.textContent = text;
+        return done;
+      }
+
+      function startTicker() {
+        stopTicker();
+        // draw immediately
+        const doneNow = tickOnce();
+        if (doneNow) return;
+
+        if (getSelectedUnit() === "milliseconds") {
+          const loop = () => {
+            if (tickOnce()) return;
+            rafId = requestAnimationFrame(loop);
+          };
+          rafId = requestAnimationFrame(loop);
+        } else {
+          timer = setInterval(() => {
+            if (tickOnce()) stopTicker();
+          }, 1000);
+        }
+      }
+
+      startTicker();
+
+      unitSelect.addEventListener("change", startTicker);
+    </script>
+  </body>
+</html>
